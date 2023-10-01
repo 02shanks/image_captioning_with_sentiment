@@ -6,17 +6,14 @@ import os
 import time
 import json
 import requests
+import subprocess
 import zipfile
 from tqdm import tqdm
 from IPython.display import Image 
 
 
 ##automatically download the annotations and images (MS-COCO dataset) from COCO page
-import os
-import requests
-import zipfile
-
-# Define the URL for the annotations and image zip file
+# Define the URLs for the annotations and image zip files
 annotation_url = 'http://images.cocodataset.org/annotations/annotations_trainval2014.zip'
 image_url = 'http://images.cocodataset.org/zips/val2014.zip'
 
@@ -25,29 +22,24 @@ download_dir = os.path.abspath('.')
 annotation_zip_path = os.path.join(download_dir, 'captions.zip')
 image_zip_path = os.path.join(download_dir, 'val2014.zip')
 
-# Download the annotations zip file
-annotation_response = requests.get(annotation_url)
-with open(annotation_zip_path, 'wb') as annotation_zip_file:
-    annotation_zip_file.write(annotation_response.content)
+# Use wget to download the annotations and image zip file
+subprocess.run(['wget', annotation_url, '-O', annotation_zip_path])
+subprocess.run(['wget', image_url, '-O', image_zip_path])
 
-# Extract the annotations zip file
+# Extract the annotations and image zip file
 with zipfile.ZipFile(annotation_zip_path, 'r') as annotation_zip_ref:
     annotation_zip_ref.extractall(download_dir)
 
-# Define the path to the annotations file
-annotation_file = os.path.join(download_dir, 'annotations', 'captions_val2014.json')
+with zipfile.ZipFile(image_zip_path, 'r') as image_zip_ref:
+    image_zip_ref.extractall(download_dir)
 
-# Check if the image zip file exists and download it if necessary
-if not os.path.exists(image_zip_path):
-    image_response = requests.get(image_url)
-    with open(image_zip_path, 'wb') as image_zip_file:
-        image_zip_file.write(image_response.content)
 
-# Define the path to the image directory
-image_dir = os.path.join(download_dir, 'val2014')
-
-# Clean up - remove the downloaded zip files if needed
+#remove the downloaded zip files if needed
 if os.path.exists(annotation_zip_path):
     os.remove(annotation_zip_path)
 if os.path.exists(image_zip_path):
     os.remove(image_zip_path)
+    
+# Define the path to the annotations file and image directory
+annotation_file = os.path.join(download_dir, 'annotations', 'captions_val2014.json')
+image_dir = os.path.join(download_dir, 'val2014')
