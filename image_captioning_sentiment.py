@@ -88,7 +88,7 @@ for annot in annotations['annotations']:
     image_id = annot['image_id']
     if image_id in res:
         caption = '<start> ' + annot['caption'] + ' <end>'
-        full_coco_image_path = PATH + 'COCO_val2014_' + '%012d.jpg' % (image_id)
+        full_coco_image_path = PATH + '/' + 'COCO_val2014_' + '%012d.jpg' % (image_id)
         all_img_name_vector.append([full_coco_image_path,0])
         all_captions.append(caption)
         
