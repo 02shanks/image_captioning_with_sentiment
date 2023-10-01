@@ -1,4 +1,3 @@
-import torch
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 import numpy as np
@@ -8,8 +7,15 @@ import json
 import requests
 import subprocess
 import zipfile
+from PIL import Image
 from tqdm import tqdm
-from IPython.display import Image 
+
+import torch
+import torchvision.models as models
+from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset
+
+
 
 
 ##automatically download the annotations and images (MS-COCO dataset) from COCO page
@@ -87,3 +93,82 @@ for annot in annotations['annotations']:
         full_coco_image_path = PATH + 'COCO_val2014_' + '%012d.jpg' % (image_id)
         all_img_name_vector.append([full_coco_image_path,0])
         all_captions.append(caption)
+        
+# shuffle the arrays to avoid grouping of different captions with same images
+train_captions, img_name_vector = shuffle(all_captions,
+                                          all_img_name_vector,
+                                          random_state=1)
+
+# Select the first 20000 captions from the shuffled set out of 20002
+num_examples = 20000
+train_captions = train_captions[:num_examples]
+img_name_vector = img_name_vector[:num_examples]
+
+def load_image(image_path):
+    # Read the image using PIL
+    img = Image.open(image_path)
+    
+    # Define the transformation pipeline
+    transform = transforms.Compose([
+        transforms.Resize((299, 299)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    
+    # Apply the transformation to the image
+    img = transform(img)
+    
+    return img, image_path
+
+
+
+# Load the Inception V3 model pre-trained on ImageNet
+image_model = models.inception_v3(pretrained=True)
+
+# Remove the top classification layer (include_top=False)
+modules = list(image_model.children())[:-1]  # Remove the last layer
+
+# Create a new PyTorch model with the modified architecture
+image_features_extract_model = torch.nn.Sequential(*modules)
+
+# Set the model to evaluation mode (no gradient calculation)
+image_features_extract_model.eval()
+
+
+# img_name_vector has a file path and sentiment association
+sentiment = img_name_vector
+# remove sentiment after creating a copy
+img_name_vector = [x[0] for x in img_name_vector]
+
+encode_train = sorted(set(img_name_vector))
+
+# Define a custom dataset class
+class CustomDataset(Dataset):
+    def __init__(self, data, transform=None):
+        self.data = data
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        img_path = self.data[idx]
+        img, _ = load_image(img_path)
+        if self.transform:
+            img = self.transform(img)
+        return img
+
+# Define the transformation pipeline
+transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize((299, 299)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+# Create a custom dataset from a list of image paths
+image_dataset = CustomDataset(encode_train, transform=transform)
+
+# Create a DataLoader for batching
+batch_size = 16
+image_data_loader = DataLoader(image_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
