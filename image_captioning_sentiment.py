@@ -16,8 +16,6 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset
 
 
-
-
 ##automatically download the annotations and images (MS-COCO dataset) from COCO page
 # Define the URLs for the annotations and image zip files
 annotation_url = 'http://images.cocodataset.org/annotations/annotations_trainval2014.zip'
@@ -104,24 +102,6 @@ num_examples = 20000
 train_captions = train_captions[:num_examples]
 img_name_vector = img_name_vector[:num_examples]
 
-def load_image(image_path):
-    # Read the image using PIL
-    img = Image.open(image_path)
-    
-    # Define the transformation pipeline
-    transform = transforms.Compose([
-        transforms.Resize((299, 299)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    # Apply the transformation to the image
-    img = transform(img)
-    
-    return img, image_path
-
-
-
 # Load the Inception V3 model pre-trained on ImageNet
 image_model = models.inception_v3(pretrained=True)
 
@@ -140,7 +120,17 @@ sentiment = img_name_vector
 # remove sentiment after creating a copy
 img_name_vector = [x[0] for x in img_name_vector]
 
-encode_train = sorted(set(img_name_vector))
+
+# Define a function to load an image and apply transformations
+def load_image(image_path):
+    img = Image.open(image_path)
+    transform = transforms.Compose([
+        transforms.Resize((299, 299)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
+    img = transform(img)
+    return img, image_path
 
 # Define a custom dataset class
 class CustomDataset(Dataset):
@@ -156,19 +146,46 @@ class CustomDataset(Dataset):
         img, _ = load_image(img_path)
         if self.transform:
             img = self.transform(img)
-        return img
+        return img, img_path
 
-# Define the transformation pipeline
+# Define a function to process and save feature vectors
+def save_features(image_data_loader, model, output_dir):
+    for img_batch, path_batch in tqdm(image_data_loader):
+        # We call the model to get the feature vectors
+        batch_features = model(img_batch)
+
+        # Reshape the feature vectors
+        batch_features = batch_features.view(batch_features.size(0), -1, batch_features.size(3))
+
+        for bf, p in zip(batch_features, path_batch):
+            # Save the feature vectors as numpy files
+            path_of_feature = p
+            np.save(os.path.join(output_dir, os.path.basename(path_of_feature) + '.npy'), bf.detach().cpu().numpy())
+
+# Define the paths to image files
+encode_train = sorted(set(img_name_vector))
+
+# Create a custom dataset from the image file paths
 transform = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize((299, 299)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
-
-# Create a custom dataset from a list of image paths
 image_dataset = CustomDataset(encode_train, transform=transform)
 
-# Create a DataLoader for batching
+# Create a DataLoader for batching the dataset
 batch_size = 16
-image_data_loader = DataLoader(image_dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
+image_data_loader = DataLoader(image_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+
+# Define the directory to save feature vectors
+output_dir = 'feature_vectors'
+
+# Make sure the output directory exists
+os.makedirs(output_dir, exist_ok=True)
+
+# Set the model to evaluation mode (no gradient calculation)
+image_features_extract_model.eval()
+
+# Save the feature vectors
+save_features(image_data_loader, image_features_extract_model, output_dir)
