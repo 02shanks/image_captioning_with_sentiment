@@ -42,4 +42,48 @@ if os.path.exists(image_zip_path):
     
 # Define the path to the annotations file and image directory
 annotation_file = os.path.join(download_dir, 'annotations', 'captions_val2014.json')
-image_dir = os.path.join(download_dir, 'val2014')
+PATH = os.path.join(download_dir, 'val2014')
+
+# Read the json file
+with open(annotation_file, 'r') as ann_file:
+    annotations = json.load(ann_file)
+    
+# Load the senticap annotations
+with open("senticap_dataset.json", 'r') as f:
+    senti_annotations = json.load(f)
+
+# List to maintain the index of captions and image name paths
+all_captions = []
+all_img_name_vector = []
+sentiment = []
+
+# form a similar file asthat of the validation captions of COCO
+senti_data = {"annotations":[]}
+for annot in senti_annotations['images']:
+    img_id = int(annot['filename'].split('_')[-1].split('.')[0])
+    for sen in annot['sentences']:
+        senti_data["annotations"].append({"image_id":img_id,"caption":sen['raw'],"sentiment":sen["sentiment"]}) 
+
+# collect all the uniques image_id
+res = [v['image_id'] for v in senti_data['annotations']]
+res = set(res)
+
+# iterate on the annotations
+for entry in senti_data['annotations']:
+    caption = '<start> ' + entry['caption'] + ' <end>'
+    all_captions.append(caption)
+    img_id = entry['image_id']
+    full_coco_image_path = PATH + 'COCO_val2014_' + '%012d.jpg' % (img_id)
+    senti = entry['sentiment']
+    if senti == 0:
+        senti = -1
+    all_img_name_vector.append([full_coco_image_path,senti])
+    
+# iterate on the annotations of COCO validation captions
+for annot in annotations['annotations']:
+    image_id = annot['image_id']
+    if image_id in res:
+        caption = '<start> ' + annot['caption'] + ' <end>'
+        full_coco_image_path = PATH + 'COCO_val2014_' + '%012d.jpg' % (image_id)
+        all_img_name_vector.append([full_coco_image_path,0])
+        all_captions.append(caption)
