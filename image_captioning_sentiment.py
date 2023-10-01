@@ -77,7 +77,7 @@ for entry in senti_data['annotations']:
     caption = '<start> ' + entry['caption'] + ' <end>'
     all_captions.append(caption)
     img_id = entry['image_id']
-    full_coco_image_path = PATH + 'COCO_val2014_' + '%012d.jpg' % (img_id)
+    full_coco_image_path = PATH + '/' + 'COCO_val2014_' + '%012d.jpg' % (img_id)
     senti = entry['sentiment']
     if senti == 0:
         senti = -1
