@@ -31,7 +31,7 @@ def download_datastet():
     all_img_name_vector = []
 
     # Load the senticap annotations
-    with open("senticap_dataset.json", 'r') as f:
+    with open("../senticap_dataset.json", 'r') as f:
         senti_annotations = json.load(f)
 
     # form a similar file asthat of the validation captions of COCO
